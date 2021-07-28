@@ -112,6 +112,15 @@ extern "C" {
        Z3_ast body,
        Z3_ast_map map);
 
+     /**
+        \brief Get nonlin MBP
+
+        def_API('Z3_nl_mbp', AST, (_in(CONTEXT), _in(AST)))
+     */
+     Z3_ast Z3_API Z3_nl_mbp
+       (Z3_context c,
+        Z3_ast body);
+
     /**
        \brief Extrapolates a model of a formula
 
@@ -138,4 +147,3 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif // __cplusplus
-

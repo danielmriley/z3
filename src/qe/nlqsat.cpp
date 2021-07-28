@@ -51,19 +51,19 @@ namespace qe {
         typedef nlsat::scoped_literal_vector clause;
 
         struct stats {
-            unsigned m_num_rounds;        
+            unsigned m_num_rounds;
             stats() { reset(); }
-            void reset() { memset(this, 0, sizeof(*this)); }            
+            void reset() { memset(this, 0, sizeof(*this)); }
         };
-        
+
         struct solver_state {
             ast_manager&           m;
             params_ref             m_params;
             nlsat::solver          m_solver;
             nlsat::literal         m_is_true;
-            nlsat::assignment      m_rmodel;        
+            nlsat::assignment      m_rmodel;
             svector<lbool>         m_bmodel;
-            nlsat::assignment      m_rmodel0;        
+            nlsat::assignment      m_rmodel0;
             svector<lbool>         m_bmodel0;
             bool                   m_valid_model;
             vector<nlsat::var_vector>            m_bound_rvars;
@@ -73,7 +73,7 @@ namespace qe {
             u_map<max_level>                     m_bvar2level;
             expr2var                             m_a2b, m_t2x;
             u_map<expr*>                         m_b2a, m_x2t;
-            nlsat::literal_vector                m_assumptions;            
+            nlsat::literal_vector                m_assumptions;
             nlsat::literal_vector                m_asms;
             nlsat::literal_vector                m_cached_asms;
             unsigned_vector                      m_cached_asms_lim;
@@ -103,7 +103,7 @@ namespace qe {
                     init_expr2var(qvs);
                 }
             }
-            
+
             void init_expr2var(app_ref_vector const& qvars) {
                 for (app* v : qvars) {
                     if (m.is_bool(v)) {
@@ -117,7 +117,7 @@ namespace qe {
                     }
                 }
             }
-            
+
             void init_var2expr() {
                 for (auto const& kv : m_t2x) {
                     m_x2t.insert(kv.m_value, kv.m_key);
@@ -141,13 +141,13 @@ namespace qe {
                     m_bmodel0.append(m_bmodel);
                 }
             }
-            
+
             void unsave_model() {
                 SASSERT(m_valid_model);
                 m_solver.set_rvalues(m_rmodel);
                 m_solver.set_bvalues(m_bmodel);
             }
-            
+
             void clear_model() {
                 m_valid_model = false;
                 m_rmodel.reset();
@@ -158,7 +158,7 @@ namespace qe {
             void add_assumption_literal(clause& clause, expr* fml) {
                 nlsat::bool_var b = m_solver.mk_bool_var();
                 clause.push_back(nlsat::literal(b, true));
-                m_assumptions.push_back(nlsat::literal(b, false)); 
+                m_assumptions.push_back(nlsat::literal(b, false));
                 m_solver.inc_ref(b);
                 m_asm2fml.insert(b, fml);
                 m_bvar2level.insert(b, max_level());
@@ -197,24 +197,24 @@ namespace qe {
                     break;
                 default:
                     lits.push_back(l);
-                    break; 
+                    break;
                 }
             }
-        
+
             void display(std::ostream& out) {
                 out << "level " << level() << "\n";
                 display_preds(out);
                 display_assumptions(out);
                 m_solver.display(out << "solver:\n");
             }
-            
+
             void display_assumptions(std::ostream& out) {
                 m_solver.display(out << "assumptions: ", m_asms.size(), m_asms.c_ptr());
                 out << "\n";
             }
-            
+
             void display_preds(std::ostream& out) {
-                for (unsigned i = 0; i < m_preds.size(); ++i) {                
+                for (unsigned i = 0; i < m_preds.size(); ++i) {
                     m_solver.display(out << i << ": ", m_preds[i]->size(), m_preds[i]->c_ptr());
                     out << "\n";
                 }
@@ -235,7 +235,7 @@ namespace qe {
                 m_bound_bvars.reset();
                 m_preds.reset();
                 for (auto const& kv : m_bvar2level) {
-                    
+
                     m_solver.dec_ref(kv.m_key);
                 }
                 m_rvar2level.reset();
@@ -259,13 +259,14 @@ namespace qe {
         expr_ref_vector        m_answer;
         expr_safe_replace      m_answer_simplify;
         expr_ref_vector        m_trail;
+        expr_ref_vector        m_mbps;
         ref<generic_model_converter> m_div_mc;
 
         lbool check_sat() {
             while (true) {
                 ++m_stats.m_num_rounds;
                 check_cancel();
-                init_assumptions();   
+                init_assumptions();
                 lbool res = s.m_solver.check(s.m_asms);
                 TRACE("qe", s.display(tout << res << "\n"); );
                 switch (res) {
@@ -284,20 +285,20 @@ namespace qe {
             }
             return l_undef;
         }
-        
+
         void init_assumptions() {
             unsigned lvl = level();
             s.m_asms.reset();
             s.m_asms.push_back(is_exists()?s.m_is_true:~s.m_is_true);
             s.m_asms.append(s.m_assumptions);
-            TRACE("qe", tout << "model valid: " << s.m_valid_model << " level: " << lvl << " "; 
+            TRACE("qe", tout << "model valid: " << s.m_valid_model << " level: " << lvl << " ";
                   s.display_assumptions(tout);
                   s.m_solver.display(tout););
 
             if (!s.m_valid_model) {
                 s.m_asms.append(s.m_cached_asms);
                 return;
-            }            
+            }
             s.unsave_model();
             if (lvl == 0) {
                 SASSERT(s.m_cached_asms.empty());
@@ -309,12 +310,12 @@ namespace qe {
                 }
             }
             s.m_asms.append(s.m_cached_asms);
-            
+
             for (unsigned i = lvl + 1; i < s.m_preds.size(); i += 2) {
                 for (unsigned j = 0; j < s.m_preds[i]->size(); ++j) {
                     nlsat::literal l = (*s.m_preds[i])[j];
                     max_level lv = s.m_bvar2level.find(l.var());
-                    bool use = 
+                    bool use =
                         (lv.m_fa == i && (lv.m_ex == UINT_MAX || lv.m_ex < lvl)) ||
                         (lv.m_ex == i && (lv.m_fa == UINT_MAX || lv.m_fa < lvl));
                     if (use) {
@@ -336,7 +337,7 @@ namespace qe {
             for (auto const& v : vec) {
                 set.insert(v);
             }
-        }        
+        }
 
         void mbp(unsigned level, nlsat::scoped_literal_vector& result) {
             nlsat::var_vector vars;
@@ -363,13 +364,13 @@ namespace qe {
             s.m_solver.display(out << "(assert (not (exists ((", v) << " Real)) \n";
             s.m_solver.display_smt2(out << "(and ", r1.size(), r1.c_ptr()) << "))))\n";
             s.m_solver.display_smt2(out << "(assert (and ", r2.size(), r2.c_ptr()); out << "))\n";
-            out << "(check-sat)\n(reset)\n";            
+            out << "(check-sat)\n(reset)\n";
         }
 
         void mbp(nlsat::var_vector const& vars, uint_set const& fvars, clause& result) {
-            // 
+            //
             // Also project auxiliary variables from clausification.
-            // 
+            //
             s.unsave_model();
             nlsat::explain& ex = s.m_solver.get_explain();
             nlsat::scoped_literal_vector new_result(s.m_solver);
@@ -382,15 +383,21 @@ namespace qe {
             }
             TRACE("qe", s.m_solver.display(tout, result.size(), result.c_ptr()); tout << "\n";);
             // project quantified real variables.
-            // They are sorted by size, so we project the largest variables first to avoid 
-            // renaming variables. 
+            // They are sorted by size, so we project the largest variables first to avoid
+            // renaming variables.
+            //std::cout << "***** NEW PASS *****\n";
             for (unsigned i = vars.size(); i-- > 0;) {
                 new_result.reset();
                 ex.project(vars[i], result.size(), result.c_ptr(), new_result);
-                TRACE("qe", display_project(tout, vars[i], result, new_result););                
+                TRACE("qe", display_project(tout, vars[i], result, new_result););
                 TRACE("qe", display_project(std::cout, vars[i], result, new_result););
                 result.swap(new_result);
             }
+
+            expr_ref fml = s.clause2fml(result);
+            std::cout << "fml from nlqsat::mbp : " << fml << "\n";
+            m_mbps.push_back(fml);
+
             negate_clause(result);
         }
 
@@ -400,7 +407,7 @@ namespace qe {
             }
         }
 
-        unsigned level() const { 
+        unsigned level() const {
             return s.level();
         }
 
@@ -440,7 +447,7 @@ namespace qe {
             for (unsigned v : vs) {
                 level.merge(s.m_rvar2level.get(v, max_level()));
             }
-            if (level == max_level()) 
+            if (level == max_level())
                 throw default_exception("level not in NRA");
             set_level(l.var(), level);
             return level;
@@ -454,10 +461,10 @@ namespace qe {
             nlsat::literal l(v, false);
             s.m_preds[k]->push_back(l);
             s.m_solver.inc_ref(v);
-            s.m_bvar2level.insert(v, level);            
+            s.m_bvar2level.insert(v, level);
             TRACE("qe", s.m_solver.display(tout, l); tout << ": " << level << "\n";);
         }
-        
+
         void project() {
             TRACE("qe", s.display_assumptions(tout););
             if (!s.m_valid_model) {
@@ -471,8 +478,8 @@ namespace qe {
             SASSERT(level() >= 2);
             unsigned num_scopes;
             clause cl(s.m_solver);
-            mbp(level()-1, cl);            
-            
+            mbp(level()-1, cl);
+
             max_level clevel = get_level(cl);
             enforce_parity(cl);
             add_clause(cl);
@@ -485,21 +492,21 @@ namespace qe {
                 num_scopes = level() - clevel.max();
                 SASSERT(num_scopes >= 2);
             }
-            
+
             TRACE("qe", tout << "backtrack: " << num_scopes << "\n";);
-            pop(num_scopes); 
+            pop(num_scopes);
         }
 
         void project_qe() {
             SASSERT(level() >= 1 && m_mode == elim_t && s.m_valid_model);
             clause cl(s.m_solver);
-            mbp(std::max(1u, level()-1), cl);            
-            
+            mbp(std::max(1u, level()-1), cl);
+
             expr_ref fml = s.clause2fml(cl);
             TRACE("qe", tout << level() << ": " << fml << "\n";);
             max_level clevel = get_level(cl);
             if (level() == 1 || clevel.max() == 0) {
-                add_assumption_literal(cl, fml);           
+                add_assumption_literal(cl, fml);
             }
             else {
                 enforce_parity(cl);
@@ -532,12 +539,12 @@ namespace qe {
 
         void add_assumption_literal(clause& clause, expr* fml) {
             s.add_assumption_literal(clause, fml);
-            m_trail.push_back(fml);            
+            m_trail.push_back(fml);
         }
 
         bool is_exists() const { return is_exists(level()); }
         bool is_forall() const { return is_forall(level()); }
-        bool is_exists(unsigned level) const { return (level % 2) == 0; }        
+        bool is_exists(unsigned level) const { return (level % 2) == 0; }
         bool is_forall(unsigned level) const { return is_exists(level+1); }
 
         void check_cancel() {
@@ -547,7 +554,7 @@ namespace qe {
             expr_ref num, den;
             app_ref name;
             div(ast_manager& m, expr* n, expr* d, app* nm):
-                num(n, m), den(d, m), name(nm, m) {}            
+                num(n, m), den(d, m), name(nm, m) {}
         };
 
         class div_rewriter_cfg : public default_rewriter_cfg {
@@ -560,9 +567,9 @@ namespace qe {
             ~div_rewriter_cfg() {}
             br_status reduce_app(func_decl* f, unsigned sz, expr* const* args, expr_ref& result, proof_ref& pr) {
                 rational r(1);
-                if (is_decl_of(f, a.get_family_id(), OP_DIV) && 
+                if (is_decl_of(f, a.get_family_id(), OP_DIV) &&
                     sz == 2 && (!a.is_numeral(args[1], r) || r.is_zero()) &&
-                    is_ground(args[0]) && is_ground(args[1])) {                    
+                    is_ground(args[0]) && is_ground(args[1])) {
                     result = m.mk_fresh_const("div", a.mk_real());
                     m_divs.push_back(div(m, args[0], args[1], to_app(result)));
                     return BR_DONE;
@@ -573,8 +580,8 @@ namespace qe {
         };
 
         //template class rewriter_tpl<div_rewriter_cfg>;
-        
-        
+
+
         class div_rewriter_star : public rewriter_tpl<div_rewriter_cfg> {
             div_rewriter_cfg m_cfg;
         public:
@@ -597,7 +604,7 @@ namespace qe {
                     throw tactic_exception("not NRA");
                 }
             }
-            void operator()(app * n) { 
+            void operator()(app * n) {
                 if (n->get_family_id() == s.m.get_basic_family_id()) {
                     return;
                 }
@@ -656,7 +663,7 @@ namespace qe {
                     paxioms.push_back(m.mk_or(den_is0, m.mk_eq(divs[i].num, arith.mk_mul(divs[i].den, divs[i].name))));
                     for (unsigned j = i + 1; j < divs.size(); ++j) {
                         paxioms.push_back(m.mk_or(m.mk_not(m.mk_eq(divs[i].den, divs[j].den)),
-                                                  m.mk_not(m.mk_eq(divs[i].num, divs[j].num)), 
+                                                  m.mk_not(m.mk_eq(divs[i].num, divs[j].num)),
                                                   m.mk_eq(divs[i].name, divs[j].name)));
                     }
                 }
@@ -672,7 +679,7 @@ namespace qe {
 
         void reset() override {
             s.reset();
-            m_st.reset();        
+            m_st.reset();
             s.m_solver.collect_statistics(m_st);
             m_free_vars.reset();
             m_answer.reset();
@@ -699,13 +706,13 @@ namespace qe {
             quantifier_hoister hoist(m);
             vector<app_ref_vector> qvars;
             app_ref_vector vars(m);
-            bool is_forall = false;   
+            bool is_forall = false;
             pred_abs abs(m);
             expr_ref fml_a(m.mk_and(fml, mk_and(paxioms)), m);
             abs.get_free_vars(fml_a, vars);
             insert_set(m_free_vars, vars);
-            qvars.push_back(vars); 
-            vars.reset();  
+            qvars.push_back(vars);
+            vars.reset();
 
             if (m_mode == elim_t) {
                 is_forall = true;
@@ -714,7 +721,7 @@ namespace qe {
             }
             else {
                 hoist.pull_quantifier(is_forall, fml, vars);
-                qvars.back().append(vars);            
+                qvars.back().append(vars);
             }
             do {
                 is_forall = !is_forall;
@@ -724,7 +731,7 @@ namespace qe {
             }
             while (!vars.empty());
             SASSERT(qvars.size() >= 2);
-            SASSERT(qvars.back().empty()); 
+            SASSERT(qvars.back().empty());
             s.init_expr2var(qvars);
 
             expr_ref is_true(m), fml1(m), fml2(m);
@@ -782,7 +789,7 @@ namespace qe {
         }
 
 
-        
+
         // Return false if nlsat assigned noninteger value to an integer variable.
         // [copied from nlsat_tactic.cpp]
         bool mk_model(model_converter_ref & mc) {
@@ -831,6 +838,7 @@ namespace qe {
             m_answer(m),
             m_answer_simplify(m),
             m_trail(m),
+            m_mbps(m),
             m_div_mc(nullptr) {
             s.m_solver.get_explain().set_signed_project(true);
             m_nftactic = mk_tseitin_cnf_tactic(m);
@@ -839,20 +847,29 @@ namespace qe {
         ~nlqsat() override {
         }
 
+        // Daniel added this
+        expr_ref clause2fml(nlsat::scoped_literal_vector const& clause) {
+          return s.clause2fml(clause);
+        }
+
+        expr_ref_vector get_mbps() { return m_mbps; }
+
         void updt_params(params_ref const & p) override {
             params_ref p2(p);
             p2.set_bool("factor", false);
             s.m_solver.updt_params(p2);
         }
-        
+
         void collect_param_descrs(param_descrs & r) override {
         }
 
-        
-        void operator()(/* in */  goal_ref const & in, 
+
+        void operator()(/* in */  goal_ref const & in,
                         /* out */ goal_ref_buffer & result) override {
 
             tactic_report report("nlqsat-tactic", *in);
+            std::cout << "In operator() of nlqsat\n";
+            in->display(std::cout);
 
             ptr_vector<expr> fmls;
             expr_ref fml(m);
@@ -860,18 +877,21 @@ namespace qe {
             fml = mk_and(m, fmls.size(), fmls.c_ptr());
             if (m_mode == elim_t) {
                 fml = m.mk_not(fml);
-            }                         
+            }
             reset();
             TRACE("qe", tout << fml << "\n";);
             if (!hoist(fml)) {
+                std::cout << "hoist returned false. Returning\n";
                 result.push_back(in.get());
                 return;
             }
+            std::cout << "hoist returned true. Moving on\n";
             TRACE("qe", tout << "ex: " << fml << "\n";);
             lbool is_sat = check_sat();
-            
+
             switch (is_sat) {
             case l_false:
+                std::cout << "is_sat returned false\n";
                 in->reset();
                 in->inc_depth();
                 if (m_mode == elim_t) {
@@ -884,6 +904,7 @@ namespace qe {
                 result.push_back(in.get());
                 break;
             case l_true:
+                std::cout << "is_sat returned true\n";
                 SASSERT(m_mode == qsat_t);
                 in->reset();
                 in->inc_depth();
@@ -891,15 +912,15 @@ namespace qe {
                 if (in->models_enabled()) {
                     model_converter_ref mc;
                     VERIFY(mk_model(mc));
-                    mc = concat(m_div_mc.get(), mc.get());                    
+                    mc = concat(m_div_mc.get(), mc.get());
                     in->add(mc.get());
-                    
+
 #if 0
                     model_ref mdl;
                     model_converter2model(m, mc.get(), mdl);
 
                     for (expr* f : fmls) {
-                        if (is_ground(f)) 
+                        if (is_ground(f))
                             std::cout << mk_pp(f, m) << " |-> " << (*mdl)(f) << "\n";
                     }
                     break;
@@ -925,15 +946,16 @@ namespace qe {
                 }
                 break;
             case l_undef:
+                std::cout << "is_sat returned undef\n";
                 result.push_back(in.get());
                 throw tactic_exception("search failed");
-            }        
+            }
         }
 
 
         void collect_statistics(statistics & st) const override {
             st.copy(m_st);
-            st.update("qsat num rounds", m_stats.m_num_rounds); 
+            st.update("qsat num rounds", m_stats.m_num_rounds);
         }
 
         void reset_statistics() override {
@@ -944,13 +966,13 @@ namespace qe {
         void cleanup() override {
             reset();
         }
-        
+
         void set_logic(symbol const & l) override {
         }
-        
+
         void set_progress_callback(progress_callback * callback) override {
         }
-        
+
         tactic * translate(ast_manager & m) override {
             return alloc(nlqsat, m, m_mode, m_params);
         }
@@ -964,5 +986,3 @@ tactic * mk_nlqsat_tactic(ast_manager & m, params_ref const& p) {
 tactic * mk_nlqe_tactic(ast_manager & m, params_ref const& p) {
     return alloc(qe::nlqsat, m, qe::elim_t, p);
 }
-
-

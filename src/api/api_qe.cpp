@@ -29,6 +29,27 @@ Notes:
 #include "qe/qe_lite.h"
 #include "muz/spacer/spacer_util.h"
 
+#include "nlsat/nlsat_assignment.h"
+#include "nlsat/nlsat_interval_set.h"
+#include "nlsat/nlsat_evaluator.h"
+#include "nlsat/nlsat_solver.h"
+#include "util/util.h"
+#include "nlsat/nlsat_explain.h"
+#include "math/polynomial/polynomial_cache.h"
+#include "util/rlimit.h"
+#include "qe/nlarith_util.h"
+
+#include "api/api_polynomial.h"
+#include "api/api_ast_vector.h"
+#include "ast/expr2polynomial.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
+#include "ast/expr2var.h"
+
+#include "qe/nlqsat.cpp"
+#include "qe/qsat.h"
+#include "sat/smt/sat_th.h"
+
 extern "C"
 {
 
@@ -102,6 +123,44 @@ extern "C"
         }
 
         return of_expr (result);
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    Z3_ast Z3_API Z3_nl_mbp (Z3_context c, Z3_ast a)
+    {
+        Z3_TRY;
+        LOG_Z3_nl_mbp (c, a);
+        RESET_ERROR_CODE();
+
+        std::cout << "IN NEW FUNCTION Z3_nl_mbp\n";
+        std::cout << "Z3_ast: " << Z3_ast_to_string(c, a) << "\n";
+
+        params_ref      ps;
+        goal_ref gr = alloc(goal, mk_c(c)->m());
+        gr->assert_expr(to_expr(a));
+        gr->display(std::cout);
+        goal_ref_buffer r;
+        qe::nlqsat nlqs(mk_c(c)->m(), qe::qsat_t, ps);
+
+        nlqs(gr,r);
+        std::cout << "From goal ref buffer: ";
+        r[0]->display(std::cout);
+        std::cout << "\n";
+        
+        expr_ref_vector mbps = nlqs.get_mbps();
+        std::cout << "MBP from api: ";
+        std::cout << mbps << "\n";
+        std::cout << "\b\b \n";
+
+        expr_ref mbp = mk_or(mbps);
+        std::cout << "expr_ref mbp : " << mbp << "\n";
+
+        Z3_ast res;
+        res = of_expr(mbp.get());
+        std::cout << "Z3_ast mbp: " << Z3_ast_to_string(c, res) << "\n";
+
+        if(res == NULL) return Z3_mk_false(c);
+        return res;
         Z3_CATCH_RETURN(nullptr);
     }
 
